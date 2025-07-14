@@ -8,6 +8,7 @@ def replace_section_flexible(doc, section_title, new_content_lines):
     inside_section = False
     section_paragraphs = []
 
+    # Find the section paragraphs between headers
     for para in paragraphs:
         if para.text.strip().upper() == section_title.upper():
             inside_section = True
@@ -20,14 +21,14 @@ def replace_section_flexible(doc, section_title, new_content_lines):
     if not section_paragraphs:
         return f"❌ Section '{section_title}' not found."
 
+    # Update existing paragraphs or add new ones
     for i in range(min(len(section_paragraphs), len(new_content_lines))):
         para = section_paragraphs[i]
-        para.clear()  # remove all text
+        para.clear()  # clear existing text
 
         line = new_content_lines[i]
 
         if section_title.upper() == "SKILLS":
-            # Remove leading bullets if any
             line = line.lstrip("• ").strip()
             if ':' in line:
                 category, rest = line.split(':', 1)
@@ -44,16 +45,16 @@ def replace_section_flexible(doc, section_title, new_content_lines):
             else:
                 para.add_run(line).bold = True
 
-        else:
+        else:  # SUMMARY and other sections
             para.text = line
 
-    # Remove extras
+    # Remove any extra old paragraphs
     if len(new_content_lines) < len(section_paragraphs):
         for para in section_paragraphs[len(new_content_lines):]:
             p = para._element
             p.getparent().remove(p)
 
-    # Append new
+    # Append any extra new lines if needed
     elif len(new_content_lines) > len(section_paragraphs):
         last_para = section_paragraphs[-1]
         for line in new_content_lines[len(section_paragraphs):]:
@@ -82,6 +83,16 @@ def replace_section_flexible(doc, section_title, new_content_lines):
 def clean_bullets(lines):
     return [line.lstrip("• ").strip() for line in lines.splitlines() if line.strip()]
 
+def clean_bullets_in_doc(doc):
+    for para in doc.paragraphs:
+        for run in para.runs:
+            # Fix patterns like '• • ' → '• '
+            if "• •" in run.text:
+                run.text = run.text.replace("• •", "• ")
+            # Also fix leading spaces like '  • '
+            if run.text.lstrip().startswith("•  "):
+                run.text = run.text.lstrip().replace("•  ", "• ")
+
 def update_resume(summary_lines, skills_lines, projects_lines, resume_path='your_resume.docx', output_path='updated_resume.docx'):
     doc = Document(resume_path)
 
@@ -95,6 +106,9 @@ def update_resume(summary_lines, skills_lines, projects_lines, resume_path='your
     msg1 = replace_section_flexible(doc, "SUMMARY", summary_lines)
     msg2 = replace_section_flexible(doc, "SKILLS", skills_lines)
     msg3 = replace_section_flexible(doc, "PROJECTS", projects_lines)
+
+    # 🚨 Important: Cleanup redundant bullets from all runs
+    clean_bullets_in_doc(doc)
 
     doc.save(output_path)
     return msg1, msg2, msg3, output_path

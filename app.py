@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import re
 import json
 from resume_updater import update_resume
 from docx import Document
@@ -15,14 +14,12 @@ def load_prompt_template():
     with open("prompts/tailor_prompt_new.txt", "r", encoding="utf-8") as f:
         return f.read()
 
-
 def load_docx_text(file_path):
     doc = Document(file_path)
     full_text = []
     for para in doc.paragraphs:
         full_text.append(para.text)
     return "\n".join(full_text)
-
 
 def extract_json_from_text(text):
     try:
@@ -33,13 +30,11 @@ def extract_json_from_text(text):
     except (ValueError, json.JSONDecodeError) as e:
         raise ValueError(f"Failed to extract or parse JSON: {e}")
 
-
 prompt_template = load_prompt_template()
 
 default_resume_path = "docs/default_super_resume.docx"
 
 # Inputs
-# super_resume = st.text_area("📄 Paste your Super Resume:", height=250)
 user_input_resume = st.text_area("📄 Paste your Super Resume (leave empty to use default):", height=250)
 
 if user_input_resume.strip():
@@ -86,7 +81,6 @@ Super Resume:
             st.text_area("⚠️ Raw Output from LLM", tailored_output, height=500)
             st.stop()
 
-
         summary_list = parsed.get("summary", [])
         skills_list = parsed.get("skills", [])
         projects_list = parsed.get("projects", [])
@@ -95,25 +89,27 @@ Super Resume:
         st.json(parsed)
         st.text_area("📄 Output (Summary, Skills, Projects):", tailored_output, height=500)
 
-         # Prepare inputs for resume_updater
+        # Prepare inputs for resume_updater (convert lists to strings)
         summary_text = "\n".join(summary_list)
         skills_text = "\n".join(skills_list)
 
-        # Convert projects list to a formatted string suitable for current resume_updater.py
-        # Each project title line followed by bullets (with bullets)
+        # Flatten projects: title + bullets (each bullet with a bullet symbol)
         projects_lines = []
         for project in projects_list:
-            projects_lines.append(project['title'])
-            projects_lines.extend(project['bullets'])
+            projects_lines.append(project['title'])  # project title as plain line
+            # Prefix each bullet with bullet character
+            for bullet in project.get('bullets', []):
+                projects_lines.append("• " + bullet.strip())
+
         projects_text = "\n".join(projects_lines)
 
-        # Show extracted text areas
+        # Show extracted text areas for review
         st.subheader("✍️ Extracted Sections")
         st.text_area("📝 Summary", summary_text, height=120)
         st.text_area("🧰 Skills", skills_text, height=150)
         st.text_area("🚀 Projects", projects_text, height=250)
 
-        # Update resume paths
+        # Paths for input and output resumes
         original_resume_path = "docs/resume.docx"
         updated_resume_path = "docs/updated_resume.docx"
 
@@ -130,7 +126,7 @@ Super Resume:
                 st.download_button(
                     "⬇️ Download Updated Resume",
                     f,
-                    file_name="docs/updated_resume.docx",
+                    file_name="updated_resume.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
 
