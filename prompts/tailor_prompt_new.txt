@@ -15,7 +15,9 @@ Output the result as a JSON object with the following structure:
   "summary": [
     "First summary line here.",
     "Second summary line here.",
-    "Third summary line here."
+    "Third summary line here.",
+    "Fourth summary line here.",
+    "Fifth summary line here."
   ],
   "skills": [
     "• Programming Languages: Python, SQL, Java",
@@ -35,6 +37,14 @@ Output the result as a JSON object with the following structure:
     },
     {
       "title": "Project Title Two",
+      "bullets": [
+        "Developed an NLP model for sentiment analysis achieving 90% accuracy.",
+        "Integrated model into production with CI/CD pipelines.",
+        "Improved inference latency by 20% using model quantization."
+      ]
+    }
+    {
+      "title": "Project Title Three",
       "bullets": [
         "Developed an NLP model for sentiment analysis achieving 90% accuracy.",
         "Integrated model into production with CI/CD pipelines.",
