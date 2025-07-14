@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
-import os
+import re
+import json
 from resume_updater import update_resume
 from docx import Document
 
@@ -11,7 +12,7 @@ st.write("Generate Summary, Skills, and Relevant Projects tailored to a job desc
 
 # Load custom prompt template
 def load_prompt_template():
-    with open("prompts/tailor_prompt.txt", "r", encoding="utf-8") as f:
+    with open("prompts/tailor_prompt_new.txt", "r", encoding="utf-8") as f:
         return f.read()
 
 
@@ -23,36 +24,14 @@ def load_docx_text(file_path):
     return "\n".join(full_text)
 
 
-def split_tailored_output(output_text):
-    lines = [line.strip() for line in output_text.strip().splitlines() if line.strip()]
-    
-    summary_lines = []
-    skill_lines = []
-    project_lines = []
-
-    mode = None
-
-    for line in lines:
-        # Detect section headers
-        if "Professional Summary" in line:
-            mode = "summary"
-            continue
-        elif "Tailored Skills" in line:
-            mode = "skills"
-            continue
-        elif "Top Projects" in line:
-            mode = "projects"
-            continue
-
-        # Append content to the correct section
-        if mode == "summary":
-            summary_lines.append(line)
-        elif mode == "skills":
-            skill_lines.append(line)
-        elif mode == "projects":
-            project_lines.append(line)
-
-    return "\n".join(summary_lines), "\n".join(skill_lines), "\n".join(project_lines)
+def extract_json_from_text(text):
+    try:
+        start = text.index("{")
+        end = text.rindex("}") + 1
+        json_str = text[start:end]
+        return json.loads(json_str)
+    except (ValueError, json.JSONDecodeError) as e:
+        raise ValueError(f"Failed to extract or parse JSON: {e}")
 
 
 prompt_template = load_prompt_template()
@@ -98,22 +77,46 @@ Super Resume:
 
         result = response.json()
         tailored_output = result['choices'][0]['message']['content']
+
+        # Parse JSON output from LLM
+        try:
+            parsed = extract_json_from_text(tailored_output)
+        except Exception as e:
+            st.error(f"❌ Failed to extract and parse JSON output: {e}")
+            st.text_area("⚠️ Raw Output from LLM", tailored_output, height=500)
+            st.stop()
+
+
+        summary_list = parsed.get("summary", [])
+        skills_list = parsed.get("skills", [])
+        projects_list = parsed.get("projects", [])
+
         st.success("✅ Tailored Components Generated")
+        st.json(parsed)
         st.text_area("📄 Output (Summary, Skills, Projects):", tailored_output, height=500)
 
-        # Split the output into summary, skills, and projects
-        summary_text, skills_text, projects_text = split_tailored_output(tailored_output)
+         # Prepare inputs for resume_updater
+        summary_text = "\n".join(summary_list)
+        skills_text = "\n".join(skills_list)
 
+        # Convert projects list to a formatted string suitable for current resume_updater.py
+        # Each project title line followed by bullets (with bullets)
+        projects_lines = []
+        for project in projects_list:
+            projects_lines.append(project['title'])
+            projects_lines.extend(project['bullets'])
+        projects_text = "\n".join(projects_lines)
+
+        # Show extracted text areas
         st.subheader("✍️ Extracted Sections")
         st.text_area("📝 Summary", summary_text, height=120)
         st.text_area("🧰 Skills", skills_text, height=150)
         st.text_area("🚀 Projects", projects_text, height=250)
 
-        # Define resume paths
-        original_resume_path = "resume.docx"
-        updated_resume_path = "updated_resume.docx"
+        # Update resume paths
+        original_resume_path = "docs/resume.docx"
+        updated_resume_path = "docs/updated_resume.docx"
 
-        # Update the resume
         try:
             msg1, msg2, msg3, output_file = update_resume(
                 summary_text, skills_text, projects_text,
@@ -127,7 +130,7 @@ Super Resume:
                 st.download_button(
                     "⬇️ Download Updated Resume",
                     f,
-                    file_name="updated_resume.docx",
+                    file_name="docs/updated_resume.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
 
